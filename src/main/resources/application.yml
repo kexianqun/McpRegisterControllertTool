@@ -1,0 +1,52 @@
+
+spring:
+  application:
+    name: McpTool
+# Actuator 配置（只暴露健康检查）
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: when-authorized
+# Springdoc OpenAPI 配置
+springdoc:
+  # 必须启用 API 文档
+  api-docs:
+    enabled: true
+    path: /v3/api-docs
+  # 启用 Swagger UI
+  swagger-ui:
+    enabled: true
+    path: /swagger-ui.html
+  # 预加载配置（重要：启动时创建 OpenAPI Bean）
+  cache:
+    disabled: true
+
+# MCP 配置
+mcp:
+  # MCP 服务器配置
+  server:
+    name: user-mcp-service          # 服务名称
+    version: 1.0.0                   # 服务版本
+    path: /mcp                       # MCP 端点路径
+  
+  # MCP 协议版本
+  protocol:
+    version: 2026-03-21
+  # 服务基础 URL（用于工具调用）
+  service:
+    base-url: http://127.0.0.1:${server.port}  # 支持变量引用
+  # Swagger 集成配置
+  swagger:
+    enabled: true
+  # 认证配置
+  auth:
+    default:
+      # 默认 Token（所有需要认证的接口都使用这个）
+      token: ${USER_SERVICE_TOKEN:your-default-token-here}
+      # 可以配置多个 Token
+      user-service: ${USER_SERVICE_TOKEN:}
+      admin-service: ${ADMIN_SERVICE_TOKEN:}
