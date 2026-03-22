@@ -42,6 +42,16 @@ public class UserController {
 }
 ```
 
+#### 接口响应的格式要求：
+ ```json
+ {
+  "code": 200,
+  "message": "请求成功",
+  "data": {
+  }
+}
+```
+
 ### 2. 启动服务
 
 服务启动后，`McpToolScanner` 会自动扫描所有带有 `@McpTool` 注解的方法，并注册为 MCP 工具。
