@@ -46,12 +46,10 @@ public class McpToolInvoker {
      */
     public Object invoke(String toolName, Map<String, Object> arguments) {
         log.info("调用 MCP 工具：{}, 参数：{}", toolName, arguments.toString());
-        
         McpToolDefinition tool = toolRegistry.getTool(toolName);
         if (tool == null) {
             throw new RuntimeException("工具不存在：" + toolName);
         }
-        
         try {
             // 构建请求头
             HttpHeaders headers = new HttpHeaders();
@@ -70,7 +68,6 @@ public class McpToolInvoker {
                 // GET 请求但没有明确标注 query params，附加所有参数（向后兼容）
                 url = appendQueryParams(url, arguments, tool.getPathVariables());
             }
-            
             // 3. 创建请求实体（处理 @RequestBody）
             // 从 inputSchema.properties 获取所有参数名
             List<String> allParams = new ArrayList<>();
@@ -87,7 +84,6 @@ public class McpToolInvoker {
             );
             log.info("调用接口：{} {}", tool.getMethod(), url);
             log.debug("请求体：{}", requestEntity.getBody());
-            
             // 4. 调用接口
             ResponseEntity<String> response = restTemplate.exchange(
                 url,
@@ -95,9 +91,7 @@ public class McpToolInvoker {
                 requestEntity,
                 String.class
             );
-            
             log.info("工具调用结果：{}", response.getBody());
-            
             // 5. 解析响应
             return objectMapper.readValue(response.getBody(), Map.class);
             
@@ -117,7 +111,6 @@ public class McpToolInvoker {
         if (!tool.isRequiresAuth()) {
             return;
         }
-        
         log.debug("工具需要认证：{}, 认证类型：{}", tool.getName(), tool.getAuthType());
         // 1. Bearer Token 认证
         if ("Bearer".equalsIgnoreCase(tool.getAuthType())) {
@@ -274,11 +267,9 @@ public class McpToolInvoker {
         if ("GET".equalsIgnoreCase(method) || "DELETE".equalsIgnoreCase(method)) {
             return new HttpEntity<>(headers);
         }
-        
         // 如果有 @RequestBody 参数
         if (bodyParams != null && !bodyParams.isEmpty()) {
             Map<String, Object> body = new HashMap<>();
-            
             for (String bodyParam : bodyParams) {
                 if ("body".equals(bodyParam) && args.containsKey("body")) {
                     // body 是整个对象（嵌套结构）
@@ -286,7 +277,6 @@ public class McpToolInvoker {
                     break;
                 }
             }
-            
             // 如果 body 为空，说明是扁平化参数（从 Swagger 解析的 @RequestBody 属性）
             if (body.isEmpty() && allParams != null) {
                 for (String param : allParams) {
@@ -296,13 +286,11 @@ public class McpToolInvoker {
                     }
                 }
             }
-            
             if (!body.isEmpty()) {
                 log.debug("请求体：{}", body);
                 return new HttpEntity<>(body, headers);
             }
         }
-        
         // 向后兼容：如果没有 bodyParams，使用所有参数
         return new HttpEntity<>(args, headers);
     }

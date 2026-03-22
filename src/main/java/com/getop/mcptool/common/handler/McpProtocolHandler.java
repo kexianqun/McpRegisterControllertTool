@@ -69,17 +69,18 @@ public class McpProtocolHandler {
      * 工具调用器
      */
     private final McpToolInvoker toolInvoker;
-    
+
     /**
      * MCP 服务器配置
      */
-    @Value("${" + McpConstants.CONFIG_SERVER_NAME + ":" + McpConstants.DEFAULT_SERVER_NAME + "}")
+    // ✅ 正确写法 - 直接使用占位符
+    @Value("${mcp.server.name:default-server}")
     private String serverName;
-    
-    @Value("${" + McpConstants.CONFIG_SERVER_VERSION + ":" + McpConstants.DEFAULT_SERVER_VERSION + "}")
+
+    @Value("${mcp.server.version:1.0.0}")
     private String serverVersion;
-    
-    @Value("${" + McpConstants.CONFIG_PROTOCOL_VERSION + ":" + McpConstants.DEFAULT_PROTOCOL_VERSION + "}")
+
+    @Value("${mcp.protocol.version:2024-11-05}")
     private String protocolVersion;
     
     /**
@@ -92,12 +93,6 @@ public class McpProtocolHandler {
                              McpToolInvoker toolInvoker) {
         this.toolRegistry = toolRegistry;
         this.toolInvoker = toolInvoker;
-        
-        log.info("✅ MCP 协议处理器初始化完成");
-        log.info("  服务名称：{}", serverName);
-        log.info("  服务版本：{}", serverVersion);
-        log.info("  协议版本：{}", protocolVersion);
-        log.info("  MCP 端点：{}", McpConstants.DEFAULT_MCP_PATH);
     }
     
     // ================================================================
@@ -117,11 +112,9 @@ public class McpProtocolHandler {
     @GetMapping(produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter connect(@RequestParam(required = false) String sessionId) {
         log.debug("新的 SSE 连接请求，sessionId: {}", sessionId);
-        
         String id = sessionId != null ? sessionId : UUID.randomUUID().toString();
         SseEmitter emitter = new SseEmitter(0L); // 永不过期
         sessions.put(id, emitter);
-        
         try {
             // 发送 SSE 端点信息（MCP 协议要求）
             SseEmitter.SseEventBuilder event = SseEmitter.event()
@@ -143,7 +136,6 @@ public class McpProtocolHandler {
             sessions.remove(id);
             log.info(McpConstants.LOG_SSE_DISCONNECTED, id);
         });
-        
         emitter.onTimeout(() -> {
             sessions.remove(id);
             log.info(McpConstants.LOG_SSE_TIMEOUT, id);
@@ -169,24 +161,19 @@ public class McpProtocolHandler {
      *     <li>tools/call - 调用工具</li>
      * </ul>
      * 
-     * @param request   MCP 请求（JSON-RPC 2.0 格式）
-     * @param sessionId 会话 ID（可选）
+     * @param request   MCP 请求（JSON-RPC 2.0 格式））
      * @return MCP 响应
      */
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE,
             produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<Map<String, Object>> handleMessage(
-            @RequestBody Map<String, Object> request,
-            @RequestParam(required = false) String sessionId) {
-        
+            @RequestBody Map<String, Object> request) {
         log.debug("收到 MCP 请求：{}", request.get("method"));
-        
         String method = (String) request.get("method");
         Object id = request.get("id");
         if (id == null) {
             id = UUID.randomUUID().toString();
         }
-        
         try {
             switch (method) {
                 case McpConstants.METHOD_INITIALIZE:
@@ -246,7 +233,6 @@ public class McpProtocolHandler {
     private ResponseEntity<Map<String, Object>> handleToolsList(Object id) {
         List<Map<String, Object>> toolList = toolRegistry.getToolList();
         log.info("📋 返回工具列表，共 {} 个工具", toolList.size());
-        
         if (log.isDebugEnabled()) {
             log.debug("工具列表详情:");
             for (Map<String, Object> tool : toolList) {
@@ -255,7 +241,6 @@ public class McpProtocolHandler {
                     tool.get(McpConstants.FIELD_TOOL_DESCRIPTION));
             }
         }
-        
         return ResponseEntity.ok(mcpResponse(id, Map.of(
             McpConstants.FIELD_TOOLS, toolList
         )));
@@ -276,9 +261,7 @@ public class McpProtocolHandler {
         try {
             // 使用工具调用器调用接口
             Object result = toolInvoker.invoke(toolName, arguments);
-            
             log.info(McpConstants.LOG_TOOL_CALL_SUCCESS, toolName);
-            
             // 将结果转换为易读的文本格式（大模型能看到）
             String resultText = formatResultForLLM(result);
             
@@ -313,33 +296,29 @@ public class McpProtocolHandler {
         if (result == null) {
             return "调用成功，但未返回数据";
         }
-        
         if (result instanceof Map) {
             Map<String, Object> resultMap = (Map<String, Object>) result;
-            
             // 检查是否有 success 字段
             Boolean success = (Boolean) resultMap.get("success");
             if (success != null && !success) {
                 return "调用失败：" + resultMap.get("message");
             }
-            
             StringBuilder sb = new StringBuilder();
-            
             // 添加 message
             String message = (String) resultMap.get("message");
+            if(message == null){
+                message = ( String) resultMap.get("msg");
+            }
             if (message != null) {
                 sb.append(message).append("\n\n");
             }
-            
             // 添加 data
             Object data = resultMap.get("data");
             if (data != null) {
                 sb.append(formatDataForLLM(data));
             }
-            
             return sb.length() > 0 ? sb.toString() : resultMap.toString();
         }
-        
         return result.toString();
     }
     
